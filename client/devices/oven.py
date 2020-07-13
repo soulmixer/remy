@@ -19,11 +19,14 @@ class Oven(device.Device):
       if action == enums.OvenEvent.OPEN.value:
         self.pizza['id'] = data['pizza_id']
         await self.open_front_door()
+        self.pizza['status'] = enums.PizzaStatus.OVEN_OPEN.value
       elif action == enums.OvenEvent.COOK.value:
         self.pizza['status'] = enums.PizzaStatus.COOKING.value
         await self.close_front_door()
         await self.cook()
         await self.open_back_door()
+        self.pizza['status'] = enums.PizzaStatus.READY_TO_PACK.value
+
 
   async def open_front_door(self):
     """Opens the front door."""
@@ -39,8 +42,9 @@ class Oven(device.Device):
 
   async def open_back_door(self):
     """Opens the back door."""
-
+    
     await self.execute_task('open_back_door')
+    self.status = enums.OvenStatus.WAITING_FOR_ROBOT_AFTER.value
 
   def close_back_door(self):
     """Closes the back door."""
@@ -50,6 +54,7 @@ class Oven(device.Device):
   async def cook(self):
     """Cooks the pizza."""
 
+    self.status = enums.OvenStatus.COOKING.value
     await self.execute_task('cook_pizza')
 
  

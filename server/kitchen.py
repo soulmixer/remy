@@ -24,7 +24,7 @@ class Kitchen(object):
   """
 
   def __init__(self):
-    num_pizzas_to_prepare = 10
+    num_pizzas_to_prepare = 4
 
     self.queue_robots_before_ovens = queue.Queue()
     self.queue_messages = queue.Queue()
@@ -85,9 +85,25 @@ class Kitchen(object):
     """Consumes message."""
 
     data = json.loads(message)
-    pizza = data['pizza']
-    if not pizza['status']:
-      self.pizzas_in_preparation[pizza['id']['status'] = pizza['status']
+    pizza_data = data['pizza']
+    if pizza_data['id']:
+      pizza = self.pizzas_in_preparation[pizza_data['id']]
+      if ((pizza.status == enums.PizzaStatus.NOT_STARTED.value 
+           and pizza_data['status'] == enums.PizzaStatus.IN_PREPARATION.value) or
+          (pizza.status == enums.PizzaStatus.IN_PREPARATION.value 
+           and pizza_data['status'] == enums.PizzaStatus.WAITING_FOR_OVEN.value) or
+          (pizza.status == enums.PizzaStatus.WAITING_FOR_OVEN.value 
+           and pizza_data['status'] == enums.PizzaStatus.OVEN_OPEN.value) or
+          (pizza.status == enums.PizzaStatus.OVEN_OPEN.value 
+           and pizza_data['status'] == enums.PizzaStatus.IN_OVEN.value) or
+          (pizza.status == enums.PizzaStatus.IN_OVEN.value 
+           and pizza_data['status'] == enums.PizzaStatus.COOKING.value) or
+          (pizza.status == enums.PizzaStatus.COOKING.value 
+           and pizza_data['status'] == enums.PizzaStatus.READY_TO_PACK.value)):
+        pizza.status = pizza_data['status']
+      
+      self.pizzas_in_preparation[pizza.id] = pizza
+
     self.devices[data['type']][data['id']].status = data['status']
 
   async def producer_handler(self):
@@ -97,12 +113,13 @@ class Kitchen(object):
       while not self.queue_messages.empty():
         websocket, message = self.queue_messages.get()
         await self.send(websocket, message)
-      await asyncio.sleep(2)
+      await asyncio.sleep(.5)
   
   async def cooking_handler(self, websocket, path, device):
     """Routes device."""
 
     while True:
+      pizzas = [(p.id, p.status) for p in self.pizzas_in_preparation.values()]
       type = device.type
       if type == enums.DeviceType.ROBOT_BEFORE_OVEN.value:
         self.cooking_handler_robot_before_oven(device)
@@ -126,47 +143,51 @@ class Kitchen(object):
         }
         self.queue_messages.put((device.websocket, message))
     elif device.status == enums.RobotBeforeOvenStatus.WAITING_FOR_OVEN.value:
-      ovens = self.devices[enums.DeviceType.OVEN.value].values()
-      open_ovens = [o for o in ovens if o.status == enums.OvenStatus.OPEN.value]
-      for oven in open_ovens:
-        if oven.pizza_id == device.pizza_id: 
-          message = {
-            'action': enums.RobotBeforeOvenEvent.PUT_IN_OVEN.value
-          }
-          self.queue_messages.put((device.websocket, message))
-          break
+      pizzas_oven_open = [
+        p for p in self.pizzas_in_preparation.values()
+        if p.status == enums.PizzaStatus.OVEN_OPEN.value
+      ]
+      if pizzas_oven_open:
+        for pizza in pizzas_oven_open:
+          if pizza.id == device.pizza_id:
+            message = {
+              'action': enums.RobotBeforeOvenEvent.PUT_IN_OVEN.value
+            }
+            self.queue_messages.put((device.websocket, message))
+            break
 
   def cooking_handler_oven(self, device):
-    robots = self.devices[enums.DeviceType.ROBOT_BEFORE_OVEN.value].values()
     if device.status == enums.OvenStatus.IDLE.value:
-      waiting_robots = [
-        r for r in robots 
-        if r.status == enums.RobotBeforeOvenStatus.WAITING_FOR_OVEN.value
+      pizzas_waiting = [
+        p for p in self.pizzas_in_preparation.values()
+        if p.status == enums.PizzaStatus.WAITING_FOR_OVEN.value
       ]
-      print('waiting_robots')
-      print(waiting_robots)
-      if waiting_robots:
-        robot = waiting_robots[0]
-        pizza_id = robot.pizza_id
-        self.pizzas_in_preparation[pizza_id].oven_id = device.id
-        self.devices[device.type][device.id].pizza_id = pizza_id
-        message = {
-          'pizza_id': pizza_id,
-          'action': enums.OvenEvent.OPEN.value
-        }
-        self.queue_messages.put((device.websocket, message))
-    elif device.status == enums.OvenStatus.OPEN.value:
-      done_robots = [
-        r for r in robots
-        if r.status == enums.RobotBeforeOvenStatus.PIZZA_IN_OVEN.value
-      ]
-      for robot in done_robots:
-        if device.pizza_id == robot.pizza_id:
+      print('pizzas_waiting')
+      print(pizzas_waiting)
+      for pizza in pizzas_waiting:
+        if not pizza.oven_id:
+          pizza.oven_id = device.id
+          self.pizzas_in_preparation[pizza.id] = pizza
+          self.devices[device.type][device.id].pizza_id = pizza.id
           message = {
-            'action': enums.OvenEvent.COOK.value
+            'pizza_id': pizza.id,
+            'action': enums.OvenEvent.OPEN.value
           }
           self.queue_messages.put((device.websocket, message))
           break
+    elif device.status == enums.OvenStatus.OPEN.value:
+      pizzas_in_oven = [
+        p for p in self.pizzas_in_preparation.values()
+        if p.status == enums.PizzaStatus.IN_OVEN.value
+      ]
+      if pizzas_in_oven:
+        for p in pizzas_in_oven:
+          if device.pizza_id == p.id:
+            message = {
+              'action': enums.OvenEvent.COOK.value
+            }
+            self.queue_messages.put((device.websocket, message))
+            break
 
   def cooking_handler_robot_after_oven(self, device):
     return

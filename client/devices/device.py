@@ -92,6 +92,6 @@ class Device(threading.Thread):
       'message': message
     }
 
-    print(self.status)
+    print('%s - %s' % (self.name, self.status))
     await self.websocket.send(json.dumps(data))
-    await asyncio.sleep(1)
+    await asyncio.sleep(.1)
