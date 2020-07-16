@@ -16,7 +16,6 @@ class RobotBeforeOven(device.Device):
 
   async def consumer_handler(self, websocket):
     async for message in websocket:
-      print(message)
       data = json.loads(message)
       action = data['action']
       if action == enums.RobotBeforeOvenEvent.PREPARE.value:
@@ -27,6 +26,13 @@ class RobotBeforeOven(device.Device):
         await self.put_in_oven()  
         self.set_pizza_status(enums.PizzaStatus.IN_OVEN.value) 
         self.status = enums.RobotBeforeOvenStatus.IDLE.value
+        """
+        await asyncio.sleep(1)
+        self.pizza = {
+          'id': None, 
+          'status': None
+        }
+        """
 
   async def prepare(self):
     self.status = enums.RobotBeforeOvenStatus.PREPARING.value
@@ -34,9 +40,6 @@ class RobotBeforeOven(device.Device):
     await self.scatter_cheese()
     self.status = enums.RobotBeforeOvenStatus.WAITING_FOR_OVEN.value
     self.set_pizza_status(enums.PizzaStatus.WAITING_FOR_OVEN.value)
-
-  def set_pizza_status(self, status):
-    self.pizza['status'] = status
 
   async def spread_tomato(self):
     """Spreads tomato sauce on a pizza crust."""
@@ -51,7 +54,7 @@ class RobotBeforeOven(device.Device):
   async def put_in_oven(self):
     """Places pizza in one of the ovens."""
 
-    await self.execute_task('place_pizza')
+    await self.execute_task('put_in_oven')
     self.status = enums.RobotBeforeOvenStatus.PIZZA_IN_OVEN.value
 
 
@@ -63,22 +66,41 @@ class RobotAfterOven(device.Device):
 
   async def consumer_handler(self, websocket):
     async for message in websocket:
-      print(message)
+      data = json.loads(message)
+      action = data['action']
+      if action == enums.RobotAfterOvenEvent.PACK.value:
+        self.pizza['id'] = data['pizza_id']
+        self.status = enums.RobotAfterOvenStatus.PACKING.value
+        self.set_pizza_status(enums.PizzaStatus.PACKING.value)
+        await self.prepare()
+        self.set_pizza_status(enums.PizzaStatus.DONE.value)
+        self.status = enums.RobotAfterOvenStatus.IDLE.value
+        """
+        await asyncio.sleep(1)
+        self.pizza = {
+          'id': None, 
+          'status': None
+        }
+        """
 
-  def pick_pizza(self):
+  async def prepare(self):
+    """Prepares pizza."""
+
+    await self.pick()
+    await self.slice()
+    await self.pack()
+
+  async def pick(self):
     """Picks pizza from one of the ovens."""
 
-    self.execute_task('pick_pizza')
-    self.slice_pizza()
-    self.pack_pizza()
+    await self.execute_task('pick')
   
-  def slice_pizza(self):
+  async def slice(self):
     """Slices pizza into pieces."""
 
-    self.execute_task('slice_pizza')
+    await self.execute_task('slice_pizza')
 
-  def pack_pizza(self):
+  async def pack(self):
     """Packs pizza into the box."""
 
-    self.execute_task('pack_pizza')
-  
+    await self.execute_task('pack_pizza')

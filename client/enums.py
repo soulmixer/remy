@@ -21,6 +21,8 @@ class PizzaStatus(Enum):
   IN_OVEN = 'IN_OVEN'
   COOKING = 'COOKING'
   READY_TO_PACK = 'READY_TO_PACK'
+  PACKING = 'PACKING'
+  DONE = 'DONE'
 
 class RobotBeforeOvenStatus(Enum):
   IDLE = 'IDLE'
@@ -36,13 +38,18 @@ class RobotBeforeOvenEvent(Enum):
 class OvenEvent(Enum):
   OPEN = 'OPEN'
   COOK = 'COOK'
-  CLOSE = 'CLOSE'
+  RESET = 'RESET'
 
 class OvenStatus(Enum):
   IDLE = 'IDLE'
   OPEN = 'OPEN'
   COOKING = 'COOKING'
   WAITING_FOR_ROBOT_AFTER = 'WAITING_FOR_ROBOT_AFTER'
+  DONE = 'DONE'
+
+class RobotAfterOvenStatus(Enum):
+  PACKING = 'PACKING'
+  IDLE = 'IDLE'
 
 class RobotAfterOvenEvent(Enum):
-  PICK_PIZZA = 'PREPARE_PIZZA'
+  PACK = 'PACK'

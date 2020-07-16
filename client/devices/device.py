@@ -67,7 +67,10 @@ class Device(threading.Thread):
 
     while True:
       await self.send()
-      await asyncio.sleep(1)
+      await asyncio.sleep(.5)
+
+  def set_pizza_status(self, status):
+    self.pizza['status'] = status
 
   def log(self, message):
     """"Logs a message to stdout."""
@@ -92,6 +95,4 @@ class Device(threading.Thread):
       'message': message
     }
 
-    print('%s - %s' % (self.name, self.status))
     await self.websocket.send(json.dumps(data))
-    await asyncio.sleep(.1)
