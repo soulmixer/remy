@@ -23,12 +23,10 @@ class Kitchen(object):
     pizzas_in_preparation: A list, the pizzas being prepared.
     queue_outgoing_messages: A queue, the messages to send.
     devices: A dict, the list of registered devices. 
-    loop: THe event loop.
+    loop: The event loop.
   """
 
   def __init__(self):
-    num_pizzas_to_prepare = 9
-
     self.queue_pizzas_orders = queue.Queue()
     self.pizzas_in_preparation = {}
     self.queue_outgoing_messages = queue.Queue()
@@ -39,6 +37,7 @@ class Kitchen(object):
     }
     self.loop = None
 
+    num_pizzas_to_prepare = 9
     for _ in range(num_pizzas_to_prepare):
       self.queue_pizzas_orders.put(Pizza())
 
