@@ -64,6 +64,7 @@ class Kitchen(object):
     id = data['id']
     type = data['type']
     status = data['status']
+
     if type == enums.DeviceType.ROBOT_BEFORE_OVEN.value:
       device = RobotBeforeOven(id, type, status, websocket) 
     elif type == enums.DeviceType.OVEN.value:
@@ -74,9 +75,9 @@ class Kitchen(object):
     self.devices[type][id] = device
 
     consumer_task = asyncio.create_task(
-      self.consumer_handler(websocket, path))
+      self.consumer_handler(websocket))
     cooking_task = asyncio.create_task(
-      self.cooking_handler(websocket, path, device))
+      self.cooking_handler(device))
     done, pending = await asyncio.wait(
       [consumer_task, cooking_task],
       return_when = asyncio.FIRST_COMPLETED,
@@ -85,7 +86,7 @@ class Kitchen(object):
     for task in pending:
       task.cancel()
 
-  async def consumer_handler(self, websocket, path):
+  async def consumer_handler(self, websocket):
     """Handles websocket incoming messages."""
 
     async for message in websocket:
@@ -114,112 +115,23 @@ class Kitchen(object):
       print('-------------')
 
       while not self.queue_outgoing_messages.empty():
-        websocket, message = self.queue_outgoing_messages.get()
-        await self.send_message(websocket, message)
+        device, message = self.queue_outgoing_messages.get()
+        await device.send_message(message)
       await asyncio.sleep(1)
   
-  async def cooking_handler(self, websocket, path, device):
-    """Routes device."""
+  async def cooking_handler(self, device):
+    """Cooking handler."""
 
     while True:
       type = device.type
       if type == enums.DeviceType.ROBOT_BEFORE_OVEN.value:
-        await self.cooking_handler_robot_before_oven(device)
+        await device.cooking_handler(self.queue_pizzas_orders,
+                                     self.pizzas_in_preparation,
+                                     self.queue_outgoing_messages)
       elif type == enums.DeviceType.OVEN.value:
-        await self.cooking_handler_oven(device)
+        await device.cooking_handler(self.pizzas_in_preparation,
+                                     self.queue_outgoing_messages)
       elif type == enums.DeviceType.ROBOT_AFTER_OVEN.value:
-        await self.cooking_handler_robot_after_oven(device)
-      
-  def filter_pizzas_in_preparation_by_status(self, status):
-    """Returns a sub list filtered by status."""
-
-    return [
-      p for p in self.pizzas_in_preparation.values()
-      if p.status in status
-    ]
-
-  async def cooking_handler_robot_before_oven(self, device):
-    if device.status == enums.RobotBeforeOvenStatus.IDLE.value:
-      if not self.queue_pizzas_orders.empty() and not device.pizza_id:
-        pizza = self.queue_pizzas_orders.get()
-        pizza.robot_before_oven_id = device.id
-        self.pizzas_in_preparation[pizza.id] = pizza
-        device.status = enums.RobotBeforeOvenStatus.PREPARING.value
-        device.pizza_id = pizza.id
-        message = self.get_message(
-          pizza_id = pizza.id,
-          action = enums.RobotBeforeOvenEvent.PREPARE.value
-        )
-        self.queue_outgoing_messages.put((device.websocket, message))
-    elif device.status == enums.RobotBeforeOvenStatus.WAITING_FOR_OVEN.value:
-      pizzas_oven_open = self.filter_pizzas_in_preparation_by_status(
-        [enums.PizzaStatus.OVEN_OPEN.value])
-      for pizza in pizzas_oven_open:
-        if pizza.id == device.pizza_id:
-          message = self.get_message(
-            action = enums.RobotBeforeOvenEvent.PUT_IN_OVEN.value)
-          self.queue_outgoing_messages.put((device.websocket, message))
-          break
-
-    await asyncio.sleep(.5)
-
-  async def cooking_handler_oven(self, device):
-    if device.status == enums.OvenStatus.IDLE.value:
-      pizzas_waiting = self.filter_pizzas_in_preparation_by_status(
-        [enums.PizzaStatus.WAITING_FOR_OVEN.value])
-      for pizza in pizzas_waiting:
-        if not pizza.oven_id:
-          pizza.oven_id = device.id
-          device.pizza_id = pizza.id
-          message = self.get_message(
-            pizza_id = pizza.id,
-            action = enums.OvenEvent.OPEN.value
-          )
-          self.queue_outgoing_messages.put((device.websocket, message))
-          break
-    elif device.status == enums.OvenStatus.OPEN.value:
-      pizzas_in_oven = self.filter_pizzas_in_preparation_by_status(
-        [enums.PizzaStatus.IN_OVEN.value])
-      for pizza in pizzas_in_oven:
-        if device.pizza_id == pizza.id:
-          message = self.get_message(action = enums.OvenEvent.COOK.value)
-          self.queue_outgoing_messages.put((device.websocket, message))
-          break
-    elif device.status == enums.OvenStatus.DONE.value:
-      pizzas_packing_or_done = self.filter_pizzas_in_preparation_by_status(
-        [enums.PizzaStatus.PACKING.value, enums.PizzaStatus.DONE.value])
-      for pizza in pizzas_packing_or_done:
-        if device.pizza_id == pizza.id:
-          message = self.get_message(action = enums.OvenEvent.RESET.value)
-          self.queue_outgoing_messages.put((device.websocket, message))
-          break
-
-    await asyncio.sleep(.5)
-
-  async def cooking_handler_robot_after_oven(self, device):
-    if device.status == enums.RobotAfterOvenStatus.IDLE.value:
-      pizzas_ready_to_pack = self.filter_pizzas_in_preparation_by_status(
-        [enums.PizzaStatus.READY_TO_PACK.value])
-      for pizza in pizzas_ready_to_pack:
-        if not pizza.robot_after_oven_id:
-          pizza.robot_after_oven_id = device.id
-          self.pizzas_in_preparation[pizza.id] = pizza
-          device.pizza_id = pizza.id
-          message = self.get_message(
-            pizza_id = pizza.id,
-            action = enums.RobotAfterOvenEvent.PACK.value
-          )
-          self.queue_outgoing_messages.put((device.websocket, message))
-          break
-
-    await asyncio.sleep(.5)
-
-  def get_message(self, **message):
-    """Gets message."""
-
-    return message
-
-  async def send_message(self, websocket, message):
-    """Sends message"""
-
-    await websocket.send(json.dumps(message))
+        await device.cooking_handler(self.pizzas_in_preparation,
+                                     self.queue_outgoing_messages)
+      await asyncio.sleep(.5)
