@@ -5,8 +5,8 @@ class WebSocket(Enum):
   URI = 'ws://localhost:8765'
 
 class DeviceType(Enum):
-  OVEN = 'OVEN'
   ROBOT_BEFORE_OVEN = 'ROBOT_BEFORE_OVEN'
+  OVEN = 'OVEN'
   ROBOT_AFTER_OVEN = 'ROBOT_AFTER_OVEN'
 
 class DeviceStatus(Enum):
@@ -48,8 +48,8 @@ class OvenStatus(Enum):
   DONE = 'DONE'
 
 class RobotAfterOvenStatus(Enum):
-  PACKING = 'PACKING'
   IDLE = 'IDLE'
+  PACKING = 'PACKING'
 
 class RobotAfterOvenEvent(Enum):
   PACK = 'PACK'

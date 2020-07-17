@@ -25,14 +25,12 @@ class RobotBeforeOven(device.Device):
       elif action == enums.RobotBeforeOvenEvent.PUT_IN_OVEN.value:
         await self.put_in_oven()  
         self.set_pizza_status(enums.PizzaStatus.IN_OVEN.value) 
+        await asyncio.sleep(2)
         self.status = enums.RobotBeforeOvenStatus.IDLE.value
-        """
-        await asyncio.sleep(1)
         self.pizza = {
           'id': None, 
           'status': None
         }
-        """
 
   async def prepare(self):
     self.status = enums.RobotBeforeOvenStatus.PREPARING.value

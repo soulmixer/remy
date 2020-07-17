@@ -90,11 +90,46 @@ class Kitchen(object):
     """Consumes message."""
 
     data = json.loads(message)
-    pizza_data = data['pizza']
-    if pizza_data['id']:
-      self.pizzas_in_preparation[pizza_data['id']].status = pizza_data['status']   
+    pizza = data['pizza']
+    if pizza['id']:
+      self.pizzas_in_preparation[pizza['id']].status = pizza['status']   
 
-    self.devices[data['type']][data['id']].status = data['status']
+    device_new_status = data['status']
+    device = self.devices[data['type']][data['id']]
+
+    update_status = False
+
+    if device.type == enums.DeviceType.ROBOT_BEFORE_OVEN.value:
+      if ((device.status == enums.RobotBeforeOvenStatus.IDLE.value and
+           device_new_status == enums.RobotBeforeOvenStatus.PREPARING.value) or
+          (device.status == enums.RobotBeforeOvenStatus.PREPARING.value and
+           device_new_status == enums.RobotBeforeOvenStatus.WAITING_FOR_OVEN.value) or
+          (device.status == enums.RobotBeforeOvenStatus.WAITING_FOR_OVEN.value and
+           device_new_status == enums.RobotBeforeOvenStatus.PIZZA_IN_OVEN.value) or
+          (device.status == enums.RobotBeforeOvenStatus.PIZZA_IN_OVEN.value and
+           device_new_status == enums.RobotBeforeOvenStatus.IDLE.value)):
+        update_status = True
+    elif device.type == enums.DeviceType.OVEN.value:
+      if ((device.status == enums.OvenStatus.IDLE.value and
+           device_new_status == enums.OvenStatus.OPEN.value) or
+          (device.status == enums.OvenStatus.OPEN.value and
+           device_new_status == enums.OvenStatus.COOKING.value) or
+          (device.status == enums.OvenStatus.COOKING.value and
+           device_new_status == enums.OvenStatus.DONE.value) or
+          (device.status == enums.OvenStatus.DONE.value and
+           device_new_status == enums.OvenStatus.IDLE.value)):
+        update_status = True
+    elif device.type == enums.DeviceType.ROBOT_AFTER_OVEN.value:
+      if ((device.status == enums.RobotAfterOvenStatus.IDLE.value and
+           device_new_status == enums.RobotAfterOvenStatus.PACKING.value) or
+          (device.status == enums.RobotAfterOvenStatus.PACKING.value and
+           device_new_status == enums.RobotAfterOvenStatus.IDLE.value)):
+        update_status = True
+
+    if update_status:
+      device.status = device_new_status
+
+    device.pizza_id = pizza['id']
 
     await asyncio.sleep(.5)
 
@@ -133,7 +168,7 @@ class Kitchen(object):
 
   async def cooking_handler_robot_before_oven(self, device):
     if device.status == enums.RobotBeforeOvenStatus.IDLE.value:
-      if not self.queue_pizzas_orders.empty():
+      if not self.queue_pizzas_orders.empty() and not device.pizza_id:
         pizza = self.queue_pizzas_orders.get()
         pizza.robot_before_oven_id = device.id
         self.pizzas_in_preparation[pizza.id] = pizza
@@ -164,7 +199,6 @@ class Kitchen(object):
       for pizza in pizzas_waiting:
         if not pizza.oven_id:
           pizza.oven_id = device.id
-          self.pizzas_in_preparation[pizza.id] = pizza
           device.pizza_id = pizza.id
           message = self.get_message(
             pizza_id = pizza.id,
