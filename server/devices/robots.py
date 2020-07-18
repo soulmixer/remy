@@ -26,13 +26,12 @@ class RobotBeforeOven(device.Device):
          status == enums.RobotBeforeOvenStatus.IDLE.value)):
       self._status = status
 
-  async def cooking_handler(self, queue_pizzas_orders, pizzas_in_preparation, 
-      queue_outgoing_messages):
+  async def cooking_handler(self, orders, queue_outgoing_messages):
     if self.status == enums.RobotBeforeOvenStatus.IDLE.value:
-      if not queue_pizzas_orders.empty() and not self.pizza_id:
-        pizza = queue_pizzas_orders.get()
+      if not orders.queue_orders.empty() and not self.pizza_id:
+        pizza = orders.queue_orders.get()
         pizza.robot_before_oven_id = self.id
-        pizzas_in_preparation[pizza.id] = pizza
+        orders.orders_in_preparation[pizza.id] = pizza
         self.status = enums.RobotBeforeOvenStatus.PREPARING.value
         self.pizza_id = pizza.id
         message = self.get_message(
@@ -42,7 +41,7 @@ class RobotBeforeOven(device.Device):
         queue_outgoing_messages.put((self, message))
     elif self.status == enums.RobotBeforeOvenStatus.WAITING_FOR_OVEN.value:
       pizzas_oven_open = self.filter_by_status(
-        pizzas_in_preparation, [enums.PizzaStatus.OVEN_OPEN.value])
+        orders.orders_in_preparation, [enums.PizzaStatus.OVEN_OPEN.value])
       for pizza in pizzas_oven_open:
         if pizza.id == self.pizza_id:
           message = self.get_message(
@@ -69,15 +68,14 @@ class RobotAfterOven(device.Device):
          status == enums.RobotAfterOvenStatus.IDLE.value)):
       self._status = status
 
-  async def cooking_handler(self, pizzas_in_preparation, 
-      queue_outgoing_messages):
+  async def cooking_handler(self, orders, queue_outgoing_messages):
     if self.status == enums.RobotAfterOvenStatus.IDLE.value:
       pizzas_ready_to_pack = self.filter_by_status(
-        pizzas_in_preparation, [enums.PizzaStatus.READY_TO_PACK.value])
+        orders.orders_in_preparation, [enums.PizzaStatus.READY_TO_PACK.value])
       for pizza in pizzas_ready_to_pack:
         if not pizza.robot_after_oven_id:
           pizza.robot_after_oven_id = self.id
-          pizzas_in_preparation[pizza.id] = pizza
+          orders.orders_in_preparation[pizza.id] = pizza
           self.pizza_id = pizza.id
           message = self.get_message(
             pizza_id = pizza.id,

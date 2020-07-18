@@ -6,6 +6,7 @@ sys.path.append('..')
 from client import enums
 import json
 import logging
+from orders import Orders
 import queue
 from recipes.pizza import Pizza
 import threading
@@ -19,16 +20,14 @@ class Kitchen(object):
   """The Kitchen class.
 
   Attributes:
-    queue_pizzas_orders: A queue, the pizzas to prepare.
-    pizzas_in_preparation: A list, the pizzas being prepared.
+    orders: An Orders instance, the orders being prepared.
     queue_outgoing_messages: A queue, the messages to send.
     devices: A dict, the list of registered devices. 
     loop: The event loop.
   """
 
   def __init__(self):
-    self.queue_pizzas_orders = queue.Queue()
-    self.pizzas_in_preparation = {}
+    self.orders = Orders()
     self.queue_outgoing_messages = queue.Queue()
     self.devices = {
       enums.DeviceType.ROBOT_BEFORE_OVEN.value: {},
@@ -36,10 +35,6 @@ class Kitchen(object):
       enums.DeviceType.ROBOT_AFTER_OVEN.value: {}
     }
     self.loop = None
-
-    num_pizzas_to_prepare = 9
-    for _ in range(num_pizzas_to_prepare):
-      self.queue_pizzas_orders.put(Pizza())
 
     self.open()
 
@@ -97,7 +92,7 @@ class Kitchen(object):
     data = json.loads(message)
     pizza = data['pizza']
     if pizza['id']:
-      self.pizzas_in_preparation[pizza['id']].status = pizza['status']   
+      self.orders.orders_in_preparation[pizza['id']].status = pizza['status']   
 
     device = self.devices[data['type']][data['id']]
     device.status = data['status']
@@ -109,7 +104,7 @@ class Kitchen(object):
     """Handles outgoing messages queue."""
 
     while True:
-      for p in self.pizzas_in_preparation.values():
+      for p in self.orders.orders_in_preparation.values():
         print(p.status)
       print('-------------')
 
@@ -122,15 +117,5 @@ class Kitchen(object):
     """Cooking handler."""
 
     while True:
-      type = device.type
-      if type == enums.DeviceType.ROBOT_BEFORE_OVEN.value:
-        await device.cooking_handler(self.queue_pizzas_orders,
-                                     self.pizzas_in_preparation,
-                                     self.queue_outgoing_messages)
-      elif type == enums.DeviceType.OVEN.value:
-        await device.cooking_handler(self.pizzas_in_preparation,
-                                     self.queue_outgoing_messages)
-      elif type == enums.DeviceType.ROBOT_AFTER_OVEN.value:
-        await device.cooking_handler(self.pizzas_in_preparation,
-                                     self.queue_outgoing_messages)
+      await device.cooking_handler(self.orders, self.queue_outgoing_messages)
       await asyncio.sleep(.5)

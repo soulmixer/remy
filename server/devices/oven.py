@@ -26,11 +26,11 @@ class Oven(device.Device):
          status == enums.OvenStatus.IDLE.value)):
       self._status = status
 
-  async def cooking_handler(self, pizzas_in_preparation, 
+  async def cooking_handler(self, orders, 
       queue_outgoing_messages):
     if self.status == enums.OvenStatus.IDLE.value:
       pizzas_waiting = self.filter_by_status(
-        pizzas_in_preparation,
+        orders.orders_in_preparation,
         [enums.PizzaStatus.WAITING_FOR_OVEN.value])
       for pizza in pizzas_waiting:
         if not pizza.oven_id:
@@ -44,7 +44,7 @@ class Oven(device.Device):
           break
     elif self.status == enums.OvenStatus.OPEN.value:
       pizzas_in_oven = self.filter_by_status(
-        pizzas_in_preparation,
+        orders.orders_in_preparation,
         [enums.PizzaStatus.IN_OVEN.value])
       for pizza in pizzas_in_oven:
         if self.pizza_id == pizza.id:
@@ -53,7 +53,7 @@ class Oven(device.Device):
           break
     elif self.status == enums.OvenStatus.DONE.value:
       pizzas_packing_or_done = self.filter_by_status(
-        pizzas_in_preparation,
+        orders.orders_in_preparation,
         [enums.PizzaStatus.PACKING.value, enums.PizzaStatus.DONE.value])
       for pizza in pizzas_packing_or_done:
         if self.pizza_id == pizza.id:
