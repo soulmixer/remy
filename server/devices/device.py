@@ -1,7 +1,6 @@
 import json
 import sys
-sys.path.append('..')
-from client import enums
+
 
 class Device(object):
   """"Device."""
@@ -36,7 +35,7 @@ class Device(object):
   @pizza_id.setter
   def pizza_id(self, id):
     self._pizza_id = id
-    
+
   def get_message(self, **message):
     """Gets message."""
 
@@ -54,3 +53,6 @@ class Device(object):
     """Sends message"""
 
     await self.websocket.send(json.dumps(message))
+
+
+

@@ -1,10 +1,10 @@
 import sys
 sys.path.append('..')
 from client import enums
-from devices import device
+from devices.device import Device
 
 
-class RobotBeforeOven(device.Device):
+class RobotBeforeOven(Device):
   """Robot Before Oven."""
 
   def __init__(self, id, type, status, websocket):
@@ -50,7 +50,7 @@ class RobotBeforeOven(device.Device):
           break
 
 
-class RobotAfterOven(device.Device):
+class RobotAfterOven(Device):
   """Robot After Oven."""
 
   def __init__(self, id, type, status, websocket):

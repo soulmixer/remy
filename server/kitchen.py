@@ -1,20 +1,13 @@
 import asyncio
-from devices.oven import Oven
-from devices.robots import RobotBeforeOven, RobotAfterOven
+from devices.factory import DeviceFactory
 import sys
 sys.path.append('..')
 from client import enums
 import json
-import logging
-from orders import Orders
+from orders.orders import Orders
 import queue
-from recipes.pizza import Pizza
-import threading
-import time
 import websockets
 
-
-logging.basicConfig()
 
 class Kitchen(object):
   """The Kitchen class.
@@ -59,12 +52,7 @@ class Kitchen(object):
     type = data['type']
     status = data['status']
 
-    if type == enums.DeviceType.ROBOT_BEFORE_OVEN.value:
-      device = RobotBeforeOven(id, type, status, websocket) 
-    elif type == enums.DeviceType.OVEN.value:
-      device = Oven(id, type, status, websocket)   
-    elif type == enums.DeviceType.ROBOT_AFTER_OVEN.value:
-      device = RobotAfterOven(id, type, status, websocket) 
+    device = DeviceFactory.create(type, id, status, websocket) 
 
     self.devices[type][id] = device
 
@@ -104,14 +92,12 @@ class Kitchen(object):
     """Handles outgoing messages queue."""
 
     while True:
-      for p in self.orders.orders_in_preparation.values():
-        print(p.status)
-      print('-------------')
-
       while not self.queue_outgoing_messages.empty():
         device, message = self.queue_outgoing_messages.get()
         await device.send_message(message)
       await asyncio.sleep(1)
+
+      self.orders.log_orders_status()
   
   async def cooking_handler(self, device):
     """Cooking handler."""
@@ -119,3 +105,5 @@ class Kitchen(object):
     while True:
       await device.cooking_handler(self.orders, self.queue_outgoing_messages)
       await asyncio.sleep(.5)
+
+  

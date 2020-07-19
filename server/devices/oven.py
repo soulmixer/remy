@@ -1,10 +1,10 @@
 import sys
 sys.path.append('..')
 from client import enums
-from devices import device
+from devices.device import Device
 
 
-class Oven(device.Device):
+class Oven(Device):
   """Oven."""
 
   def __init__(self, id, type, status, websocket):

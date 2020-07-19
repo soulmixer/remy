@@ -1,6 +1,6 @@
 
 import queue
-from recipes.pizza import Pizza
+from orders.recipes.pizza import Pizza
 
 class Orders(object):
   """Orders."""
@@ -12,4 +12,9 @@ class Orders(object):
     num_orders = 12
     for _ in range(num_orders):
       self.queue_orders.put(Pizza())
+
+  def log_orders_status(self):
+    for p in self.orders_in_preparation.values():
+      print(p.status)
+    print('-------------')
 
