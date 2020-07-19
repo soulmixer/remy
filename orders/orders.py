@@ -2,6 +2,7 @@
 import queue
 from orders.recipes.pizza import Pizza
 
+
 class Orders(object):
   """Orders."""
 

@@ -4,6 +4,7 @@ from client import enums
 from devices.oven import Oven
 from devices.robots import RobotBeforeOven, RobotAfterOven
 
+
 class DeviceFactory(object):
   """DeviceFactory"""
 

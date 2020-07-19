@@ -8,6 +8,7 @@ import time
 
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
+
 class RobotBeforeOven(device.Device):
   """Robot before oven"""
 

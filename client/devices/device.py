@@ -11,6 +11,7 @@ logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
 TASK_EXECUTON_TIME = 1
 
+
 class Device(threading.Thread):
   """Device class.
 
