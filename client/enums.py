@@ -42,6 +42,7 @@ class OvenEvent(Enum):
 
 class OvenStatus(Enum):
   IDLE = 'IDLE'
+  OPENING = 'OPENING'
   OPEN = 'OPEN'
   COOKING = 'COOKING'
   WAITING_FOR_ROBOT_AFTER = 'WAITING_FOR_ROBOT_AFTER'

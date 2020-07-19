@@ -9,7 +9,7 @@ class Orders(object):
     self.queue_orders = queue.Queue()
     self.orders_in_preparation = {}
 
-    num_orders = 9
+    num_orders = 12
     for _ in range(num_orders):
       self.queue_orders.put(Pizza())
 
