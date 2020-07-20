@@ -14,6 +14,11 @@ class Orders(object):
     for _ in range(num_orders):
       self.queue_orders.put(Pizza())
 
+  def update(self, data):
+    pizza = data['pizza']
+    if pizza['id']:
+      self.orders_in_preparation[pizza['id']].status = pizza['status']
+
   def log_orders_status(self):
     for p in self.orders_in_preparation.values():
       print(p.status)

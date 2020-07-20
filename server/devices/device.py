@@ -41,6 +41,10 @@ class Device(object):
 
     return message
 
+  def update(self, data):
+    self.status = data['status']
+    self.pizza_id = data['pizza']['id']
+
   def filter_by_status(self, pizzas, status):
     """Returns a sub list filtered by status."""
 

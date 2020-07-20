@@ -15,18 +15,12 @@ class Kitchen(object):
   Attributes:
     orders: An Orders instance, the orders being prepared.
     queue_outgoing_messages: A queue, the messages to send.
-    devices: A dict, the list of registered devices. 
     loop: The event loop.
   """
 
   def __init__(self):
     self.orders = Orders()
     self.queue_outgoing_messages = queue.Queue()
-    self.devices = {
-      enums.DeviceType.ROBOT_BEFORE_OVEN.value: {},
-      enums.DeviceType.OVEN.value: {},
-      enums.DeviceType.ROBOT_AFTER_OVEN.value: {}
-    }
     self.loop = None
 
     self.open()
@@ -54,10 +48,8 @@ class Kitchen(object):
 
     device = DeviceFactory.create(type, id, status, websocket) 
 
-    self.devices[type][id] = device
-
     consumer_task = asyncio.create_task(
-      self.consumer_handler(websocket))
+      self.consumer_handler(device))
     cooking_task = asyncio.create_task(
       self.cooking_handler(device))
     done, pending = await asyncio.wait(
@@ -68,25 +60,22 @@ class Kitchen(object):
     for task in pending:
       task.cancel()
 
-  async def consumer_handler(self, websocket):
+  async def consumer_handler(self, device):
     """Handles websocket incoming messages."""
 
-    async for message in websocket:
-      await self.consumer(message)
+    async for message in device.websocket:
+      data = json.loads(message)
+      self.orders.update(data)
+      device.update(data)
 
-  async def consumer(self, message):
-    """Consumes message."""
+      await asyncio.sleep(.5)    
 
-    data = json.loads(message)
-    pizza = data['pizza']
-    if pizza['id']:
-      self.orders.orders_in_preparation[pizza['id']].status = pizza['status']   
+  async def cooking_handler(self, device):
+    """Cooking handler."""
 
-    device = self.devices[data['type']][data['id']]
-    device.status = data['status']
-    device.pizza_id = pizza['id']
-
-    await asyncio.sleep(.5)
+    while True:
+      await device.cooking_handler(self.orders, self.queue_outgoing_messages)
+      await asyncio.sleep(.5)
 
   async def producer_handler(self):
     """Handles outgoing messages queue."""
@@ -98,12 +87,5 @@ class Kitchen(object):
       await asyncio.sleep(1)
 
       self.orders.log_orders_status()
-  
-  async def cooking_handler(self, device):
-    """Cooking handler."""
-
-    while True:
-      await device.cooking_handler(self.orders, self.queue_outgoing_messages)
-      await asyncio.sleep(.5)
 
   
