@@ -1,8 +1,6 @@
-import asyncio
 import kitchen
 import logging
 import sys
-import websockets
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
